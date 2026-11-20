@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: loan-mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: customer_loan_system
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: loanuser
+      MYSQL_PASSWORD: loanpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    networks:
+      - loan-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: loan-backend
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/customer_loan_system?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_DRIVER: com.mysql.cj.jdbc.Driver
+      DB_USERNAME: loanuser
+      DB_PASSWORD: loanpassword
+      JWT_SECRET: CustomerLoanEligibilitySystemSecretKeyForJwtTokenSigning2026SecureKey!
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend_uploads:/app/uploads
+      - backend_data:/app/data
+    networks:
+      - loan-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: loan-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "5173:80"
+    networks:
+      - loan-network
+
+volumes:
+  mysql_data:
+  backend_uploads:
+  backend_data:
+
+networks:
+  loan-network:
+    driver: bridge
